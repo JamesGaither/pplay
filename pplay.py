@@ -1886,6 +1886,7 @@ class Repeater:
             sys.exit(16)
 
     def recv(self, pending):
+        debuk("L1889 in recv function")
         if self.is_sctp and not self.use_ssl:
             xp = pending
             if pending == 0:
@@ -1894,7 +1895,10 @@ class Repeater:
 
             return msg
         else:
-            return self.sock.recv(pending)
+            debuk("L1898 recv")
+            output = self.sock.recv(pending)
+            debuk("L1900")
+            return output
 
     def read(self, data_left, blocking=True):
 
@@ -1954,8 +1958,12 @@ class Repeater:
             debuk("expecting/reading: %dB of data" % data_left)
             self.tstamp_last_read = time.time()
             if not self.is_udp:
-                self.sock.setblocking(True)
-                return self.recv(data_left)
+                self.sock.settimeout(3)
+                debuk("L1958: blocking set true here")
+                
+                output = self.recv(data_left)
+                debuk("L1962")
+                return output
             else:
                 data, client_address = self.sock.recvfrom(data_left)
                 self.target = client_address
@@ -2121,15 +2129,32 @@ class Repeater:
             # let's expect whatever we can receive
             return 0
 
+
+    def j_read(self, data_left):
+        """screw it, I'll just write my own receive function"""
+
+        self.sock.settimeout(2)
+        try:
+            out = self.sock.recv(1024)
+            return out
+
+        except Exception as e:
+            debuk(f"error: {e}")
+            return 
+
+
     def packet_read(self):
         debuk("packet_read: reading socket")
 
-        d = self.read(self.get_expected_data_len())
-        current_len = len(d)
+        d = self.j_read(0)
+        if d is None:
+            current_len = 1
+        else:
+            current_len = len(d)
 
-        debuk("packet_read: read returned %d" % len(d))
-        if not len(d):
-            return len(d)
+        debuk("packet_read: read returned %d" % current_len)
+        #if not len(d):
+        #    return len(d)
 
         expected_data = self.packets[self.total_packet_index]
 
@@ -2147,18 +2172,22 @@ class Repeater:
             loopcount += 1
 
             delta = time.time() - t_start
-            if delta > 1:
-                if Features.verbose:
-                    print_yellow("data receiving delay...")
-                time.sleep(0.05)
+            #if delta > 1:
+            #    if Features.verbose:
+            #        print_yellow("data receiving delay...")
+            #    time.sleep(0.05)
 
-            if delta > 10:
+            if delta > 2:
                 print_red_bright("receiving timed out!")
                 break
+            data = self.j_read(self.get_expected_data_len() - len_d)
+            if data is None:
+                current_len = 1
+            else:
+                current_len = len(data)
+                d += data
 
-            data = self.read(self.get_expected_data_len() - len(d))
-            current_len = len(data)
-            d += data
+            debuk("L2161: ")
             len_d = len(d)
 
             if len_d < len_expected_data:
@@ -2408,8 +2437,8 @@ class Repeater:
 
             r, w, e = self.select_wrapper(self.write_end)
 
-            if r or e or not w:
-                debuk("DEBUG: sockets: r %s, w %s, e %s" % (str(r), str(w), str(e)))
+            #if r or e or not w:
+                #debuk("DEBUG: sockets: r %s, w %s, e %s" % (str(r), str(w), str(e)))
 
             if self.sock in r and not self.send_aligned():
 
@@ -2901,7 +2930,7 @@ def main():
 
     if repeater is not None:
 
-        debuk("repeater crated")
+        debuk("repeater created")
         repeater.init_fuzz(args)
         repeater.init_scatter(args)
 
