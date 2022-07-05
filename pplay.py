@@ -1677,6 +1677,8 @@ class Repeater:
 
             new_socket = None
 
+            # Wait for user input before continuing
+            input("Press Enter to continue establishing a socket")
             self.sock = self.create_socket(True, im_ver)
 
             try:
@@ -1820,6 +1822,9 @@ class Repeater:
             print_white_bright("IMPERSONATING SERVER, listening on %s:%s" % (print_ip, port,))
 
             server_address = (ip, int(port))
+
+            # Wait for user input before continuing
+            input("Press Enter to continue establishing a socket")
 
             s = self.create_socket(False, im_ver)
 
